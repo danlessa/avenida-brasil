@@ -1,0 +1,968 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atlas da Avenida Brasil</title>
+<meta name="description" content="Todas as vias chamadas Avenida Brasil no país, mapeadas a partir do OpenStreetMap e agrupadas por município.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;500;600;800;900&family=Overpass+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+:root {
+  --ground: #EEF0EC;
+  --surface: #FFFFFF;
+  --ink: #1A2027;
+  --ink-2: #48525C;
+  --ink-3: #6E7881;
+  --rule: #D6DAD5;
+  --sea: #E3E7E6;
+  --tiles: grayscale(1) contrast(.88) brightness(1.06);
+  --mun: #97A39E;
+  --sign: #1B4A99;
+  --sign-ink: #FFFFFF;
+  --av: #1B4A99;
+  --hl: #EFA400;
+  --hl-casing: #3B2A00;
+  --bar-track: #E2E6E1;
+  --focus: #1B4A99;
+  --link: #1B4A99;
+  --heat-1: #A9C1EE;
+  --heat-2: #5B85D3;
+  --heat-3: #1B4A99;
+  --heat-4: #0B255A;
+  --font-ui: "Overpass", "Helvetica Neue", Arial, sans-serif;
+  --font-num: "Overpass Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --ground: #12161A;
+    --surface: #1A1F25;
+    --ink: #E7EBEE;
+    --ink-2: #AAB3BB;
+    --ink-3: #7F8993;
+    --rule: #2A3138;
+    --sea: #111417;
+    --tiles: grayscale(1) invert(1) brightness(.78) contrast(.92);
+    --mun: #4E5963;
+    --sign: #2456AE;
+    --sign-ink: #FFFFFF;
+    --av: #7FA7F0;
+    --hl: #FFC23A;
+    --hl-casing: #140E00;
+    --bar-track: #252C33;
+    --focus: #7FA7F0;
+    --link: #7FA7F0;
+    --heat-1: #1F3D75;
+    --heat-2: #3E6BC0;
+    --heat-3: #7FA7F0;
+    --heat-4: #E1EBFF;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(320px, 400px) 1fr;
+  grid-template-rows: 100%;
+}
+
+/* ---------- painel ---------- */
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--rule);
+  background: var(--ground);
+}
+.panel-head {
+  padding: 20px 20px 14px;
+  display: grid;
+  gap: 14px;
+}
+
+/* placa de rua esmaltada */
+.placa {
+  background: var(--sign);
+  color: var(--sign-ink);
+  border-radius: 6px;
+  padding: 5px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.15);
+}
+.placa-in {
+  border: 2px solid rgba(255,255,255,.9);
+  border-radius: 3px;
+  padding: 8px 14px 9px;
+  display: grid;
+  gap: 1px;
+}
+.placa-tipo {
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  opacity: .92;
+}
+.placa-nome {
+  font-weight: 900;
+  font-size: 40px;
+  line-height: .95;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.placa-rodape {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(255,255,255,.55);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.placa-rodape span:last-child { font-family: var(--font-num); letter-spacing: 0; font-weight: 400; }
+
+.lead {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13.5px;
+  text-wrap: pretty;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.stat {
+  padding: 9px 0 8px;
+  display: grid;
+  gap: 1px;
+}
+.stat + .stat { padding-left: 12px; border-left: 1px solid var(--rule); }
+.stat b {
+  font-family: var(--font-num);
+  font-weight: 600;
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.stat span { font-size: 11.5px; color: var(--ink-3); line-height: 1.25; }
+
+/* abas */
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--rule);
+}
+.tab {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 8px 10px 7px;
+  font: 600 13px/1.2 var(--font-ui);
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--sign); }
+.tab:hover { color: var(--ink); }
+
+.view { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 20px 10px;
+}
+.field {
+  font: 500 13.5px/1.2 var(--font-ui);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 8px 10px 7px;
+  min-width: 0;
+}
+.field:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+#q { flex: 1 1 100%; }
+#uf, #sort { flex: 1 1 0; cursor: pointer; }
+
+.count-line {
+  padding: 0 20px 6px;
+  font-size: 12px;
+  color: var(--ink-3);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.count-line button {
+  appearance: none; border: 0; background: none; padding: 0;
+  font: inherit; color: var(--link); cursor: pointer; text-decoration: underline;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px 16px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.row {
+  appearance: none;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 10px;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 12px 6px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.row:hover { background: var(--surface); }
+.row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.row[aria-current="true"] { background: var(--surface); box-shadow: inset 3px 0 0 var(--hl); }
+.row-name { font-weight: 600; font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
+.row-uf {
+  font-family: var(--font-num);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  margin-left: 6px;
+}
+.row-km {
+  font-family: var(--font-num);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.empty { padding: 16px 12px; color: var(--ink-3); }
+
+/* por estado */
+.uf-head {
+  padding: 12px 20px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.uf-head p { margin: 0; font-size: 12px; color: var(--ink-3); flex: 1 1 160px; }
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.seg button {
+  appearance: none; border: 0; background: none;
+  font: 600 12px/1 var(--font-ui);
+  color: var(--ink-3);
+  padding: 7px 10px 6px;
+  cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--sign); color: var(--sign-ink); }
+.seg button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+.bars { list-style: none; margin: 0; padding: 0 8px 16px; overflow-y: auto; flex: 1; min-height: 0; }
+.bar {
+  appearance: none;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 30px 1fr 72px;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.bar:hover { background: var(--surface); }
+.bar:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.bar-uf { font-family: var(--font-num); font-weight: 600; font-size: 12px; }
+.bar-track { height: 10px; background: var(--bar-track); border-radius: 0 4px 4px 0; position: relative; }
+.bar-fill { position: absolute; inset: 0 auto 0 0; background: var(--av); border-radius: 0 4px 4px 0; min-width: 2px; }
+.bar-val { font-family: var(--font-num); font-size: 12px; color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
+.bar.is-zero .bar-val { color: var(--ink-3); }
+
+.foot {
+  padding: 10px 20px 12px;
+  border-top: 1px solid var(--rule);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.foot a { color: inherit; }
+
+/* ---------- mapa ---------- */
+.map-wrap { position: relative; min-height: 0; }
+#map { position: absolute; inset: 0; background: var(--sea); font-family: var(--font-ui); }
+.leaflet-container { background: var(--sea); font-family: var(--font-ui); }
+.basemap { filter: var(--tiles); }
+.leaflet-bar a, .leaflet-bar a:hover {
+  background: var(--surface); color: var(--ink); border-bottom-color: var(--rule);
+}
+.leaflet-bar { border: 1px solid var(--rule) !important; box-shadow: none !important; }
+.leaflet-control-attribution {
+  background: color-mix(in srgb, var(--surface) 85%, transparent) !important;
+  color: var(--ink-3);
+  font-size: 10.5px;
+}
+.leaflet-control-attribution a { color: var(--ink-2); }
+.leaflet-tooltip.tip {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  font: 500 12.5px/1.35 var(--font-ui);
+  padding: 6px 9px 5px;
+}
+.leaflet-tooltip.tip::before { display: none; }
+.tip b { font-weight: 800; }
+.tip .num { font-family: var(--font-num); color: var(--ink-2); }
+
+.legend {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 500;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 7px 10px 6px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  max-width: calc(100% - 24px);
+}
+.legend i { display: inline-block; vertical-align: middle; margin-right: 5px; }
+.lg-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--av); opacity: .7; }
+.lg-line { width: 18px; height: 4px; border-radius: 2px; background: var(--hl); box-shadow: 0 0 0 1px var(--hl-casing); }
+.legend i.lg-ramp {
+  width: 64px; height: 8px; border-radius: 4px; margin: 0 5px;
+  background: linear-gradient(90deg, var(--heat-1), var(--heat-2), var(--heat-3), var(--heat-4));
+}
+.legend .seg button { padding: 6px 9px 5px; }
+
+/* ficha da cidade */
+.card {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 600;
+  width: min(330px, calc(100% - 24px));
+  max-height: calc(100% - 70px);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.14);
+  display: grid;
+  gap: 12px;
+  padding: 12px 12px 14px;
+}
+.card .placa-nome { font-size: 24px; }
+.card .placa-in { padding: 6px 10px 7px; }
+.card-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+.card-title { display: none; margin: 0; font-weight: 800; font-size: 16px; line-height: 1.25; text-wrap: balance; }
+.card-title small { display: block; font-weight: 600; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+.close {
+  appearance: none;
+  border: 1px solid var(--rule);
+  background: var(--ground);
+  color: var(--ink-2);
+  width: 30px; height: 30px;
+  border-radius: 6px;
+  font: 400 18px/1 var(--font-ui);
+  cursor: pointer;
+  display: grid; place-items: center;
+}
+.close:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.facts { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; font-size: 13px; }
+.facts dt { color: var(--ink-3); }
+.facts dd { margin: 0; font-weight: 600; }
+.facts dd.num { font-family: var(--font-num); font-weight: 600; }
+.links { display: flex; flex-wrap: wrap; gap: 8px; }
+.links a {
+  font: 600 12.5px/1 var(--font-ui);
+  color: var(--ink);
+  text-decoration: none;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 8px 10px 7px;
+  background: var(--ground);
+}
+.links a:hover { border-color: var(--ink-3); }
+.links a:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.note { margin: 0; font-size: 11.5px; color: var(--ink-3); }
+
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 52% 48%; }
+  .map-wrap { grid-row: 1; }
+  .panel { grid-row: 2; border-right: 0; border-top: 1px solid var(--rule); }
+  .panel-head { padding: 14px 16px 10px; gap: 10px; }
+  .panel-head .placa, .lead { display: none; }
+  .tabs, .controls, .count-line, .uf-head, .foot { padding-left: 16px; padding-right: 16px; }
+  .card { top: auto; bottom: 8px; left: 8px; width: calc(100% - 16px); max-height: calc(100% - 16px); gap: 8px; }
+  .card .placa, .card .note, .card .osm-row { display: none; }
+  .card .card-title { display: block; }
+  .card .facts { font-size: 12.5px; gap: 3px 12px; }
+  .card-top { align-items: center; }
+  .legend { top: 8px; bottom: auto; left: 8px; padding: 4px; gap: 4px; max-width: calc(100% - 64px); }
+  .legend .lg-key { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="panel" aria-label="Lista de municípios">
+    <header class="panel-head">
+      <div class="placa" role="img" aria-label="Placa de rua: Avenida Brasil">
+        <div class="placa-in">
+          <span class="placa-tipo">Avenida</span>
+          <span class="placa-nome">Brasil</span>
+          <div class="placa-rodape"><span>Atlas nacional</span><span id="sign-count">—</span></div>
+        </div>
+      </div>
+      <p class="lead">Cada ponto no mapa é um município com pelo menos uma via chamada <b>Avenida Brasil</b> no OpenStreetMap. Clique num ponto ou na lista para ver o traçado.</p>
+      <div class="stats">
+        <div class="stat"><b id="st-mun">—</b><span id="st-mun-l">municípios</span></div>
+        <div class="stat"><b id="st-km">—</b><span>km somados</span></div>
+        <div class="stat"><b id="st-uf">—</b><span id="st-uf-l">UFs</span></div>
+      </div>
+    </header>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-list" aria-selected="true" aria-controls="view-list">Municípios</button>
+      <button class="tab" role="tab" id="tab-uf" aria-selected="false" aria-controls="view-uf">Por estado</button>
+    </div>
+
+    <section class="view" id="view-list" role="tabpanel" aria-labelledby="tab-list">
+      <div class="controls">
+        <input class="field" id="q" type="search" placeholder="Buscar município…" autocomplete="off" aria-label="Buscar município">
+        <select class="field" id="uf" aria-label="Filtrar por estado"><option value="">Todos os estados</option></select>
+        <select class="field" id="sort" aria-label="Ordenar">
+          <option value="len">Mais longas</option>
+          <option value="name">A–Z</option>
+          <option value="uf">Por estado</option>
+        </select>
+      </div>
+      <div class="count-line"><span id="count">—</span><button id="clear" type="button" hidden>Limpar filtros</button></div>
+      <ul class="list" id="list"></ul>
+    </section>
+
+    <section class="view" id="view-uf" role="tabpanel" aria-labelledby="tab-uf" hidden>
+      <div class="uf-head">
+        <p id="uf-caption">Municípios com Avenida Brasil, por estado.</p>
+        <div class="seg" role="group" aria-label="Medida">
+          <button type="button" id="m-count" aria-pressed="true">Quantidade</button>
+          <button type="button" id="m-pct" aria-pressed="false">% do estado</button>
+        </div>
+      </div>
+      <ul class="bars" id="bars"></ul>
+    </section>
+
+    <footer class="foot">
+      Vias com <code>name=Avenida Brasil</code> no <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (ODbL), consultadas em 22/09/2026. Mapa-base © OpenStreetMap. Municípios e estados: malhas do <a href="https://www.ibge.gov.br/geociencias/organizacao-do-territorio/malhas-territoriais.html" target="_blank" rel="noopener">IBGE</a>. Extensão estimada pelo eixo da via, fundindo pistas paralelas.
+    </footer>
+  </aside>
+
+  <main class="map-wrap">
+    <div id="map" aria-label="Mapa do Brasil com as Avenidas Brasil"></div>
+    <div class="legend">
+      <div class="seg" role="group" aria-label="Camada do mapa">
+        <button type="button" id="lay-dots" aria-pressed="true">Pontos</button>
+        <button type="button" id="lay-heat" aria-pressed="false">Calor</button>
+      </div>
+      <div class="seg" role="group" aria-label="Peso do mapa de calor" id="heat-weight" hidden>
+        <button type="button" id="hw-mun" aria-pressed="true">Por município</button>
+        <button type="button" id="hw-km" aria-pressed="false">Por km</button>
+      </div>
+      <span class="lg-key" id="key-dots"><i class="lg-dot"></i>Município (área ∝ extensão)</span>
+      <span class="lg-key" id="key-heat" hidden>menos<i class="lg-ramp"></i>mais <span id="key-heat-unit">municípios</span></span>
+      <span class="lg-key"><i class="lg-line"></i>Selecionada</span>
+    </div>
+    <article class="card" id="card" hidden aria-live="polite"></article>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+<script src="data/avenidas.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- utilidades ---------- */
+  function decode(str) {
+    let i = 0, lat = 0, lng = 0;
+    const out = [];
+    while (i < str.length) {
+      let b, s = 0, r = 0;
+      do { b = str.charCodeAt(i++) - 63; r |= (b & 31) << s; s += 5; } while (b >= 32);
+      lat += (r & 1) ? ~(r >> 1) : (r >> 1);
+      s = 0; r = 0;
+      do { b = str.charCodeAt(i++) - 63; r |= (b & 31) << s; s += 5; } while (b >= 32);
+      lng += (r & 1) ? ~(r >> 1) : (r >> 1);
+      out.push([lat / 1e5, lng / 1e5]);
+    }
+    return out;
+  }
+  const norm = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const slug = c => norm(c.n).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + c.uf.toLowerCase();
+  const nf1 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+  const nf0 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
+  function fmtLen(m) {
+    if (m < 1000) return nf0.format(Math.round(m / 10) * 10) + " m";
+    return nf1.format(m / 1000) + " km";
+  }
+  const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+  const HW = {
+    motorway: "via expressa", trunk: "via de trânsito rápido", primary: "arterial principal",
+    secondary: "arterial secundária", tertiary: "via coletora", unclassified: "via não classificada",
+    residential: "rua local", living_street: "via compartilhada", service: "via de serviço",
+    track: "estrada de terra", pedestrian: "calçadão", busway: "corredor de ônibus",
+    construction: "em obras", motorway_link: "alça de acesso", trunk_link: "alça de acesso",
+    primary_link: "alça de acesso", secondary_link: "alça de acesso", tertiary_link: "alça de acesso"
+  };
+  function tok(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  /* ---------- dados ---------- */
+  const DATA = window.DATA;
+  const cities = DATA.cities;
+  const ufs = DATA.ufs.slice().sort((a, b) => a.s.localeCompare(b.s));
+  const ufBySigla = Object.fromEntries(ufs.map(u => [u.s, u]));
+  cities.forEach(c => { c.key = norm(c.n + " " + c.uf); c.slug = slug(c); });
+  const bySlug = Object.fromEntries(cities.map(c => [c.slug, c]));
+  const perUf = {};
+  cities.forEach(c => { perUf[c.uf] = (perUf[c.uf] || 0) + 1; });
+  const ufsWith = ufs.filter(u => perUf[u.s]);
+  const ufsWithout = ufs.filter(u => !perUf[u.s]);
+  const totalLen = cities.reduce((a, c) => a + c.L, 0);
+
+  document.getElementById("sign-count").textContent = cities.length + " municípios";
+  document.getElementById("st-mun").textContent = nf0.format(cities.length);
+  document.getElementById("st-mun-l").textContent = "municípios (" + nf0.format(cities.length / DATA.total * 100) + "% do país)";
+  document.getElementById("st-km").textContent = nf0.format(totalLen / 1000);
+  document.getElementById("st-uf").textContent = ufsWith.length + " de " + ufs.length;
+  document.getElementById("st-uf-l").textContent = ufsWithout.length
+    ? "UFs (só " + (ufsWithout.length === 1 && ufsWithout[0].s === "DF" ? "o DF" : ufsWithout.map(u => u.s).join(", ")) + " não tem)" : "UFs";
+
+  /* ---------- mapa ---------- */
+  const map = L.map("map", {
+    zoomControl: true, attributionControl: true, minZoom: 3, maxZoom: 17,
+    zoomSnap: 0.25, worldCopyJump: false, preferCanvas: true
+  });
+  map.zoomControl.setPosition("topright");
+  map.attributionControl.setPrefix(false);
+  map.attributionControl.addAttribution('Malhas <a href="https://www.ibge.gov.br" target="_blank" rel="noopener">IBGE</a>');
+  // tiles padrão do OSM (sem chave); o tom neutro e o modo escuro vêm do filtro em .basemap
+  const mq = matchMedia("(prefers-color-scheme: dark)");
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19, className: "basemap",
+    attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+  }).addTo(map);
+
+  map.createPane("land").style.zIndex = 300;
+  map.createPane("mun").style.zIndex = 350;
+  map.createPane("roads").style.zIndex = 400;
+  map.createPane("dots").style.zIndex = 420;
+  map.createPane("sel").style.zIndex = 450;
+  const rLand = L.canvas({ pane: "land", padding: 0.4 });
+  const rMun = L.canvas({ pane: "mun", padding: 0.4 });
+  const rRoads = L.canvas({ pane: "roads", padding: 0.4, tolerance: 6 });
+  const rDots = L.canvas({ pane: "dots", padding: 0.4, tolerance: 4 });
+  const rSel = L.canvas({ pane: "sel", padding: 0.4 });
+
+  // estados: usados para enquadrar o mapa e contornar o estado filtrado
+  const ufLayers = {};
+  const ufOutline = L.layerGroup().addTo(map);
+  ufs.forEach(u => {
+    ufLayers[u.s] = L.polygon(u.o.map(decode), { renderer: rLand, interactive: false, fill: false, weight: 1.5, dashArray: "6 4" });
+  });
+  const brBounds = L.latLngBounds([]);
+  Object.values(ufLayers).forEach(l => brBounds.extend(l.getBounds()));
+
+  // municípios, vias e pontos
+  const munGroup = L.layerGroup();
+  const roadGroup = L.layerGroup();
+  const dotGroup = L.layerGroup().addTo(map);
+  function radius(c) { return 2.5 + Math.sqrt(c.L / 1000) * 1.7; }
+  cities.forEach(c => {
+    c.lines = c.g.map(decode);
+    c.bounds = L.latLngBounds([c.b[0], c.b[1]], [c.b[2], c.b[3]]);
+    c.outline = L.polygon(c.o.map(decode), { renderer: rMun, interactive: false, fill: false, weight: 1, dashArray: "4 4" });
+    munGroup.addLayer(c.outline);
+    c.road = L.polyline(c.lines, { renderer: rRoads, weight: 3, lineCap: "round", lineJoin: "round" });
+    c.dot = L.circleMarker(c.ll, { renderer: rDots, radius: radius(c), weight: 1 });
+    const tip = '<b>' + esc(c.n) + '</b> – ' + c.uf + '<br><span class="num">' + fmtLen(c.L) + '</span>';
+    [c.road, c.dot].forEach(l => {
+      l.bindTooltip(tip, { className: "tip", direction: "top", offset: [0, -4], sticky: l === c.road });
+      l.on("click", () => select(c, true));
+    });
+    roadGroup.addLayer(c.road);
+    dotGroup.addLayer(c.dot);
+  });
+  // pontos pequenos por cima dos grandes
+  cities.slice().sort((a, b) => b.L - a.L).forEach(c => c.dot.bringToFront());
+
+  // adicionadas ao mapa por syncZoom, só depois que o mapa carregou
+  const selCasing = L.polyline([], { renderer: rSel, interactive: false, weight: 9, lineCap: "round", lineJoin: "round" });
+  const selLine = L.polyline([], { renderer: rSel, interactive: false, weight: 5, lineCap: "round", lineJoin: "round" });
+  const selRing = L.circleMarker([0, 0], { renderer: rSel, interactive: false, radius: 6, weight: 3, fill: false });
+
+  // mapa de calor: "mun" = um ponto por município; "km" = amostras a cada 400 m ao longo
+  // das vias, com peso que soma a extensão estimada da cidade (pistas paralelas não contam em dobro)
+  const HEAT = { radius: 16, blur: 14, step: 0.4 };
+  const heatPts = { mun: [], km: [] };
+  cities.forEach(c => {
+    heatPts.mun.push({ uf: c.uf, p: [c.ll[0], c.ll[1], 1] });
+    const samples = [];
+    c.lines.forEach(line => {
+      let t = HEAT.step / 2;
+      for (let i = 1; i < line.length; i++) {
+        const [la1, lo1] = line[i - 1], [la2, lo2] = line[i];
+        const d = Math.hypot((lo2 - lo1) * Math.cos(la1 * Math.PI / 180), la2 - la1) * 111.2;
+        for (; t <= d; t += HEAT.step) samples.push([la1 + (la2 - la1) * t / d, lo1 + (lo2 - lo1) * t / d]);
+        t -= d;
+      }
+    });
+    if (!samples.length) samples.push(c.ll);
+    const w = c.L / 1000 / samples.length;
+    samples.forEach(q => heatPts.km.push({ uf: c.uf, p: [q[0], q[1], w] }));
+  });
+  const heat = L.heatLayer([], { radius: HEAT.radius, blur: HEAT.blur, maxZoom: 0, minOpacity: 0.1 });
+  // o plugin quebra se receber opções fora do mapa; nesse caso só guarda (aplicadas no próximo refreshHeat)
+  function heatOptions(o) { if (map.hasLayer(heat)) heat.setOptions(o); else L.setOptions(heat, o); }
+  // escala recalculada a cada zoom: soma os pesos em células do tamanho de uma mancha (as manchas
+  // vizinhas se sobrepõem) e satura a rampa no 95º percentil dessas somas
+  function heatMax(pts) {
+    const z = map.getZoom(), cell = HEAT.radius + HEAT.blur, grid = new Map();
+    pts.forEach(p => {
+      const q = map.project([p[0], p[1]], z);
+      const k = Math.floor(q.x / cell) + ":" + Math.floor(q.y / cell);
+      grid.set(k, (grid.get(k) || 0) + p[2]);
+    });
+    const v = [...grid.values()].sort((a, b) => a - b);
+    return v.length ? v[Math.floor((v.length - 1) * 0.95)] : 1;
+  }
+  function refreshHeat() {
+    if (!map.hasLayer(heat)) return;
+    const pts = heatPts[state.heatWeight].filter(o => !state.uf || o.uf === state.uf).map(o => o.p);
+    heat.setOptions({ max: heatMax(pts) });
+    heat.setLatLngs(pts);
+  }
+  const ringRadius = c => (state.layer === "heat" ? 2.5 : radius(c)) + 3;
+
+  const ROAD_ZOOM = 9.5, SEL_ZOOM = 7.5;
+  function syncZoom() {
+    const z = map.getZoom();
+    [selCasing, selLine].forEach(l => {
+      if (z >= SEL_ZOOM && !map.hasLayer(l)) l.addTo(map);
+      else if (z < SEL_ZOOM && map.hasLayer(l)) map.removeLayer(l);
+    });
+    const heatOn = state.layer === "heat" && z < ROAD_ZOOM;
+    if (heatOn && !map.hasLayer(heat)) heat.addTo(map);
+    else if (!heatOn && map.hasLayer(heat)) map.removeLayer(heat);
+    refreshHeat();
+    if (z >= ROAD_ZOOM) {
+      if (!map.hasLayer(roadGroup)) { map.addLayer(munGroup); map.addLayer(roadGroup); }
+      if (map.hasLayer(dotGroup)) map.removeLayer(dotGroup);
+      if (map.hasLayer(selRing)) map.removeLayer(selRing);
+    } else {
+      if (map.hasLayer(roadGroup)) { map.removeLayer(roadGroup); map.removeLayer(munGroup); }
+      if (!map.hasLayer(dotGroup)) map.addLayer(dotGroup);
+      if (current && !map.hasLayer(selRing)) selRing.addTo(map);
+    }
+  }
+
+  let theme = {};
+  function applyTheme() {
+    theme = {
+      ring: tok("--surface"), ufline: tok("--ink-2"), mun: tok("--mun"), av: tok("--av"),
+      hl: tok("--hl"), casing: tok("--hl-casing")
+    };
+    Object.values(ufLayers).forEach(l => l.setStyle({ color: theme.ufline }));
+    cities.forEach(c => {
+      c.outline.setStyle({ color: theme.mun });
+      c.road.setStyle({ color: theme.av, opacity: 0.9 });
+    });
+    styleDots();
+    heatOptions({ gradient: { 0.2: tok("--heat-1"), 0.45: tok("--heat-2"), 0.7: tok("--heat-3"), 1: tok("--heat-4") } });
+    selCasing.setStyle({ color: theme.casing, opacity: 0.85 });
+    selLine.setStyle({ color: theme.hl });
+    selRing.setStyle({ color: theme.hl });
+  }
+  function styleDots() {
+    // no modo calor os pontos viram marcas pequenas por cima da mancha (e continuam clicáveis)
+    const hm = state.layer === "heat";
+    cities.forEach(c => {
+      const on = !state.uf || c.uf === state.uf;
+      c.dot.setRadius(hm ? 2.5 : radius(c));
+      c.dot.setStyle({
+        color: theme.ring, fillColor: theme.av, weight: hm ? 0.75 : 1,
+        fillOpacity: on ? (hm ? 0.95 : 0.62) : (hm ? 0 : 0.1), opacity: on ? 0.9 : (hm ? 0 : 0.15)
+      });
+    });
+  }
+  if (mq.addEventListener) mq.addEventListener("change", applyTheme);
+
+  /* ---------- estado da interface ---------- */
+  const state = { q: "", uf: "", sort: "len", measure: "count", layer: "dots", heatWeight: "mun" };
+  let current = null;
+
+  const $list = document.getElementById("list");
+  const $count = document.getElementById("count");
+  const $clear = document.getElementById("clear");
+  const $q = document.getElementById("q");
+  const $uf = document.getElementById("uf");
+  const $sort = document.getElementById("sort");
+  const $card = document.getElementById("card");
+
+  ufsWith.forEach(u => {
+    const o = document.createElement("option");
+    o.value = u.s; o.textContent = u.n + " (" + perUf[u.s] + ")";
+    $uf.appendChild(o);
+  });
+
+  const rowEls = new Map();
+  cities.forEach(c => {
+    const li = document.createElement("li");
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "row";
+    b.innerHTML = '<span class="row-name">' + esc(c.n) + '<span class="row-uf">' + c.uf + '</span></span><span class="row-km">' + fmtLen(c.L) + '</span>';
+    b.addEventListener("click", () => select(c, true));
+    li.appendChild(b);
+    rowEls.set(c, li);
+  });
+
+  function renderList() {
+    const q = norm(state.q.trim());
+    let rows = cities.filter(c => (!state.uf || c.uf === state.uf) && (!q || c.key.includes(q)));
+    if (state.sort === "name") rows.sort((a, b) => a.n.localeCompare(b.n, "pt-BR"));
+    else if (state.sort === "uf") rows.sort((a, b) => a.uf.localeCompare(b.uf) || a.n.localeCompare(b.n, "pt-BR"));
+    else rows.sort((a, b) => b.L - a.L);
+    const frag = document.createDocumentFragment();
+    rows.forEach(c => frag.appendChild(rowEls.get(c)));
+    $list.replaceChildren(frag);
+    if (!rows.length) {
+      const li = document.createElement("li"); li.className = "empty";
+      li.textContent = "Nenhum município com esse nome" + (state.uf ? " em " + ufBySigla[state.uf].n : "") + ".";
+      $list.appendChild(li);
+    }
+    const km = rows.reduce((a, c) => a + c.L, 0);
+    $count.textContent = rows.length + (rows.length === 1 ? " município" : " municípios") + ", " + nf0.format(km / 1000) + " km no total";
+    $clear.hidden = !state.q && !state.uf;
+  }
+
+  function markCurrent() {
+    rowEls.forEach((li, c) => li.firstChild.setAttribute("aria-current", c === current ? "true" : "false"));
+  }
+
+  function select(c, fly, card = true) {
+    current = c;
+    selCasing.setLatLngs(c.lines);
+    selLine.setLatLngs(c.lines);
+    selRing.setLatLng(c.ll).setRadius(ringRadius(c));
+    syncZoom();
+    if (map.getZoom() < ROAD_ZOOM && !map.hasLayer(selRing)) selRing.addTo(map);
+    if (fly) {
+      const small = matchMedia("(max-width: 760px)").matches;
+      map.flyToBounds(c.bounds, {
+        paddingTopLeft: small ? [30, 30] : [360, 40], paddingBottomRight: small ? [30, 200] : [60, 40],
+        maxZoom: 15.5, duration: 1.1
+      });
+    }
+    if (card) renderCard(c); else $card.hidden = true;
+    markCurrent();
+    const li = rowEls.get(c);
+    if (li.isConnected) li.scrollIntoView({ block: "nearest" });
+    if (card) try { history.replaceState(null, "", "#" + c.slug); } catch (e) { /* sem hash */ }
+  }
+
+  function clearSelection() {
+    current = null;
+    selCasing.setLatLngs([]); selLine.setLatLngs([]);
+    if (map.hasLayer(selRing)) map.removeLayer(selRing);
+    $card.hidden = true;
+    markCurrent();
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* ok */ }
+  }
+
+  function renderCard(c) {
+    const uf = ufBySigla[c.uf];
+    const rank = cities.indexOf(c) + 1; // cities vem ordenado por extensão
+    const osm = "https://www.openstreetmap.org/?mlat=" + c.ll[0] + "&mlon=" + c.ll[1] + "#map=15/" + c.ll[0] + "/" + c.ll[1];
+    const gmaps = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("Avenida Brasil, " + c.n + " - " + c.uf);
+    $card.innerHTML =
+      '<div class="card-top">' +
+        '<div class="placa"><div class="placa-in">' +
+          '<span class="placa-tipo">Avenida</span><span class="placa-nome">Brasil</span>' +
+          '<div class="placa-rodape"><span>' + esc(c.n) + '</span><span>' + c.uf + '</span></div>' +
+        '</div></div>' +
+        '<h2 class="card-title"><small>Avenida Brasil</small>' + esc(c.n) + ' – ' + c.uf + '</h2>' +
+        '<button class="close" type="button" aria-label="Fechar ficha">×</button>' +
+      '</div>' +
+      '<dl class="facts">' +
+        '<dt>Município</dt><dd>' + esc(c.n) + '</dd>' +
+        '<dt>Estado</dt><dd>' + esc(uf.n) + '</dd>' +
+        '<dt>Extensão</dt><dd class="num">' + fmtLen(c.L) + '</dd>' +
+        '<dt>Posição</dt><dd>' + rank + 'ª mais longa de ' + cities.length + '</dd>' +
+        '<dt>Tipo de via</dt><dd>' + (HW[c.hw] || c.hw) + '</dd>' +
+        (c.k > 1 ? '<dt>Trechos</dt><dd>' + c.k + ' trechos separados na cidade</dd>' : '') +
+        '<dt class="osm-row">No OSM</dt><dd class="osm-row">' + c.w + (c.w === 1 ? ' segmento' : ' segmentos') + ' de via</dd>' +
+      '</dl>' +
+      '<div class="links">' +
+        '<a href="' + osm + '" target="_blank" rel="noopener">Abrir no OpenStreetMap ↗</a>' +
+        '<a href="' + gmaps + '" target="_blank" rel="noopener">Google Maps ↗</a>' +
+      '</div>' +
+      (c.raw > c.L * 1.15 ? '<p class="note">Pistas paralelas e alças somam ' + fmtLen(c.raw) + ' de traçado; a extensão acima conta o eixo da avenida uma vez só.</p>' : '');
+    $card.querySelector(".close").addEventListener("click", clearSelection);
+    $card.hidden = false;
+  }
+
+  /* ---------- controles ---------- */
+  $q.addEventListener("input", () => { state.q = $q.value; renderList(); });
+  $sort.addEventListener("change", () => { state.sort = $sort.value; renderList(); });
+  $uf.addEventListener("change", () => setUf($uf.value, true));
+  $clear.addEventListener("click", () => { $q.value = ""; state.q = ""; setUf("", true); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && current) clearSelection(); });
+
+  function setUf(s, fit) {
+    state.uf = s;
+    $uf.value = s;
+    renderList();
+    styleDots();
+    refreshHeat();
+    ufOutline.clearLayers();
+    if (s) ufOutline.addLayer(ufLayers[s]);
+    if (fit) {
+      const b = s ? ufLayers[s].getBounds() : brBounds;
+      map.flyToBounds(b, { padding: [30, 30], duration: 0.9 });
+    }
+  }
+
+  // camada: pontos ou calor
+  const $layDots = document.getElementById("lay-dots"), $layHeat = document.getElementById("lay-heat");
+  const $hwMun = document.getElementById("hw-mun"), $hwKm = document.getElementById("hw-km");
+  function setLayer(mode) {
+    state.layer = mode;
+    $layDots.setAttribute("aria-pressed", String(mode === "dots"));
+    $layHeat.setAttribute("aria-pressed", String(mode === "heat"));
+    document.getElementById("heat-weight").hidden = mode !== "heat";
+    document.getElementById("key-dots").hidden = mode !== "dots";
+    document.getElementById("key-heat").hidden = mode !== "heat";
+    styleDots();
+    if (current) selRing.setRadius(ringRadius(current));
+    syncZoom();
+  }
+  function setHeatWeight(w) {
+    state.heatWeight = w;
+    $hwMun.setAttribute("aria-pressed", String(w === "mun"));
+    $hwKm.setAttribute("aria-pressed", String(w === "km"));
+    document.getElementById("key-heat-unit").textContent = w === "km" ? "km de avenida" : "municípios";
+    refreshHeat();
+  }
+  $layDots.addEventListener("click", () => setLayer("dots"));
+  $layHeat.addEventListener("click", () => setLayer("heat"));
+  $hwMun.addEventListener("click", () => setHeatWeight("mun"));
+  $hwKm.addEventListener("click", () => setHeatWeight("km"));
+
+  // abas
+  const tabs = [["tab-list", "view-list"], ["tab-uf", "view-uf"]];
+  function showTab(id) {
+    tabs.forEach(([t, v]) => {
+      const on = t === id;
+      document.getElementById(t).setAttribute("aria-selected", on ? "true" : "false");
+      document.getElementById(v).hidden = !on;
+    });
+  }
+  tabs.forEach(([t]) => document.getElementById(t).addEventListener("click", () => showTab(t)));
+
+  // gráfico por estado
+  const $bars = document.getElementById("bars");
+  const $mCount = document.getElementById("m-count");
+  const $mPct = document.getElementById("m-pct");
+  function renderBars() {
+    const pct = state.measure === "pct";
+    const rows = ufs.map(u => {
+      const n = perUf[u.s] || 0;
+      return { u, n, v: pct ? n / u.t * 100 : n };
+    }).sort((a, b) => b.v - a.v || a.u.s.localeCompare(b.u.s));
+    const max = Math.max(...rows.map(r => r.v));
+    const frag = document.createDocumentFragment();
+    rows.forEach(r => {
+      const li = document.createElement("li");
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "bar" + (r.n ? "" : " is-zero");
+      b.title = r.u.n + ": " + r.n + " de " + r.u.t + " municípios (" + nf1.format(r.n / r.u.t * 100) + "%)";
+      const label = r.n === 0 ? "nenhum" : pct ? nf1.format(r.v) + "%" : String(r.n);
+      b.innerHTML = '<span class="bar-uf">' + r.u.s + '</span><span class="bar-track"><span class="bar-fill" style="width:' + (r.v / max * 100) + '%"></span></span><span class="bar-val">' + label + '</span>';
+      if (r.n) b.addEventListener("click", () => { showTab("tab-list"); setUf(r.u.s, true); });
+      else b.disabled = true;
+      li.appendChild(b);
+      frag.appendChild(li);
+    });
+    $bars.replaceChildren(frag);
+    document.getElementById("uf-caption").textContent = pct
+      ? "Parcela dos municípios de cada estado que têm uma Avenida Brasil."
+      : "Municípios com Avenida Brasil, por estado. Toque numa barra para filtrar.";
+    $mCount.setAttribute("aria-pressed", pct ? "false" : "true");
+    $mPct.setAttribute("aria-pressed", pct ? "true" : "false");
+  }
+  $mCount.addEventListener("click", () => { state.measure = "count"; renderBars(); });
+  $mPct.addEventListener("click", () => { state.measure = "pct"; renderBars(); });
+
+  /* ---------- início ---------- */
+  applyTheme();
+  renderList();
+  renderBars();
+  map.fitBounds(brBounds, { padding: [20, 20] });
+  // o Leaflet dispara zoomend antes de load; só escutar depois da primeira vista
+  map.on("zoomend", syncZoom);
+  syncZoom();
+  const start = bySlug[decodeURIComponent((location.hash || "").slice(1))];
+  if (start) select(start, true);
+  // sem link direto: destaca a mais longa sem sair da visão nacional (ficha só em tela larga)
+  else select(cities[0], false, !matchMedia("(max-width: 760px)").matches);
+})();
+</script>
+</body>
+</html>
